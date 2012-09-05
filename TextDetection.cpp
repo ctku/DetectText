@@ -42,6 +42,7 @@
 #include <algorithm>
 #include <vector>
 #include <TextDetection.h>
+#include <string.h>
 
 #define PI 3.14159265
 
@@ -204,11 +205,21 @@ void renderComponentsWithBoxes (IplImage * SWTImage, std::vector<std::vector<Poi
     }
 }
 
+typedef struct {
+	char *img_fn;
+	int img_w;
+	int img_h;
+        bool img_dol; //dark on light
+	char username[128];
+	char text_label[128];
+} output_xml_t;
+
 void renderChainsWithBoxes (IplImage * SWTImage,
                    std::vector<std::vector<Point2d> > & components,
                    std::vector<Chain> & chains,
                    std::vector<std::pair<Point2d,Point2d> > & compBB,
-                   IplImage * output) {
+                   IplImage * output,
+                   output_xml_t *info) {
     // keep track of included components
     std::vector<bool> included;
     included.reserve(components.size());
@@ -241,6 +252,26 @@ void renderChainsWithBoxes (IplImage * SWTImage,
     cvReleaseImage ( &out );
     cvReleaseImage ( &outTemp);
 
+#if 1    
+        ///////////////////////////////////////////////////////////////////////
+	char xml_fn[128] = {0};
+	strcpy(xml_fn, info->img_fn);
+	char *cur = strrchr(xml_fn, '.');
+	if (info->img_dol)
+            strcpy(cur, ".swt.1.xml");
+        else
+            strcpy(cur, ".swt.0.xml");
+	strcat(cur, "\0");
+	FILE* w = fopen(xml_fn, "w");
+	fprintf(w, "<?xml version='1.0' encoding='UTF-8'?>\n");
+        fprintf(w, "<!--GEDI was developed at Language and Media Processing Laboratory, University of Maryland.-->\n");
+        fprintf(w, "<GEDI xmlns='http://lamp.cfar.umd.edu/media/projects/GEDI/' GEDI_version='2.3.24' GEDI_date='08/22/2012'>\n");
+	fprintf(w, "	<USER name='%s' date='8/22/2012 15:34' dateFormat='mm/dd/yyyy hh:mm'>	</USER>\n", info->username);
+	fprintf(w, "		<DL_DOCUMENT src='%s' docTag='xml' NrOfPages='1'>\n", info->img_fn);
+	fprintf(w, "			<DL_PAGE gedi_type='DL_PAGE' src='%s' pageID='1' width='%d' height='%d'>\n", info->img_fn, info->img_w, info->img_h);
+        /////////////////////////////////////////////////////////////////////
+#endif    
+
     int count = 0;
     for (std::vector<std::pair<CvPoint,CvPoint> >::iterator it= bb.begin(); it != bb.end(); it++) {
         CvScalar c;
@@ -249,7 +280,31 @@ void renderChainsWithBoxes (IplImage * SWTImage,
         else c=cvScalar(0,0,255);
         count++;
         cvRectangle(output,it->first,it->second,c,2);
+
+#if 1
+        /////////////////////////////////////////////////////////////////
+        fprintf(w, "                    <DL_ZONE gedi_type='TextBox' id='%d' col='%d' row='%d' width='%d' height='%d' Text='%s'> </DL_ZONE>\n", 
+                count,
+                it->first.x, it->first.y,
+                it->second.x - it->first.x + 1,
+                it->second.y - it->first.y + 1,
+                info->text_label);
+        /////////////////////////////////////////////////////////////////
+#endif
     }
+
+    {
+#if 1
+        /////////////////////////////////////////////////////////////////
+        fprintf(w, "            </DL_PAGE>\n");
+        fprintf(w, "    </DL_DOCUMENT>\n");
+        fprintf(w, "</GEDI>\n");
+        fclose(w);
+        printf("XML file '%s' is outputed\n", xml_fn);
+        /////////////////////////////////////////////////////////////////
+#endif
+    }
+
 }
 
 void renderChains (IplImage * SWTImage,
@@ -281,8 +336,22 @@ void renderChains (IplImage * SWTImage,
 
 }
 
-IplImage * textDetection (IplImage * input, bool dark_on_light)
+
+IplImage * textDetection (IplImage * input, bool dark_on_light, char * argv)
 {
+    // Manage output filename from "xxx.jpg" to "xxx.N.png" where N=1,2,...
+    char fn[64] = {0};
+    char *ex = NULL;
+    strcpy(fn, argv);
+    ex = strrchr(fn, '.');
+    strcpy(ex, ".N.png");
+    int no = strlen(fn) - 5;
+    printf("***************** Start *****************\n");
+
+    // Save original image
+    fn[no] = '_';
+    cvSaveImage (fn, input);
+
     assert ( input->depth == IPL_DEPTH_8U );
     assert ( input->nChannels == 3 );
     std::cout << "Running textDetection with dark_on_light " << dark_on_light << std::endl;
@@ -296,7 +365,8 @@ IplImage * textDetection (IplImage * input, bool dark_on_light)
     IplImage * edgeImage =
             cvCreateImage( cvGetSize (input),IPL_DEPTH_8U, 1 );
     cvCanny(grayImage, edgeImage, threshold_low, threshold_high, 3) ;
-    cvSaveImage ( "canny.png", edgeImage);
+    fn[no] = '1';
+    //cvSaveImage ( /*"canny.png"*/fn, edgeImage);
 
     // Create gradient X, gradient Y
     IplImage * gaussianImage =
@@ -333,7 +403,8 @@ IplImage * textDetection (IplImage * input, bool dark_on_light)
     IplImage * saveSWT =
             cvCreateImage ( cvGetSize ( input ), IPL_DEPTH_8U, 1 );
     cvConvertScale(output2, saveSWT, 255, 0);
-    cvSaveImage ( "SWT.png", saveSWT);
+    fn[no] = '2';
+    //cvSaveImage ( /*"SWT.png"*/fn, saveSWT);
     cvReleaseImage ( &output2 );
     cvReleaseImage( &saveSWT );
 
@@ -353,7 +424,8 @@ IplImage * textDetection (IplImage * input, bool dark_on_light)
     IplImage * output3 =
             cvCreateImage ( cvGetSize ( input ), 8U, 3 );
     renderComponentsWithBoxes (SWTImage, validComponents, compBB, output3);
-    cvSaveImage ( "components.png",output3);
+    fn[no] = '3';
+    //cvSaveImage ( /*"components.png"*/fn,output3);
     //cvReleaseImage ( &output3 );
 
     // Make chains of components
@@ -363,20 +435,50 @@ IplImage * textDetection (IplImage * input, bool dark_on_light)
     IplImage * output4 =
             cvCreateImage ( cvGetSize ( input ), IPL_DEPTH_8U, 1 );
     renderChains ( SWTImage, validComponents, chains, output4 );
-    //cvSaveImage ( "text.png", output4);
+    fn[no] = '4';
+    //cvSaveImage ( /*"text.png"*/fn, output4);
 
     IplImage * output5 =
             cvCreateImage ( cvGetSize ( input ), IPL_DEPTH_8U, 3 );
     cvCvtColor (output4, output5, CV_GRAY2RGB);
     cvReleaseImage ( &output4 );
 
-    /*IplImage * output =
+    IplImage * output =
             cvCreateImage ( cvGetSize ( input ), IPL_DEPTH_8U, 3 );
-    renderChainsWithBoxes ( SWTImage, validComponents, chains, compBB, output); */
+    
+
+    {
+    output_xml_t info;
+    info.img_fn = argv;
+    CvSize img_size = cvGetSize(input);
+    info.img_w = img_size.width;
+    info.img_h = img_size.height;
+    info.img_dol = dark_on_light;
+    char username[64] = "ctku";
+    char text_label[64] = "ARABIC";
+    strcpy(info.username, /*argv[2]*/username);
+    strcpy(info.text_label, /*argv[3]*/text_label);
+    renderChainsWithBoxes ( SWTImage, validComponents, chains, compBB, output, &info);
+    }
+    /*
+    printf("chains.size() = %d", chains.size());
+    for (int i=1;i<chains.size();i++)
+    {
+        printf("chains[%d].(p,q) = (%d,%d)\n",i,chains[i].p,chains[i].q);
+    }
+    */
+    if (dark_on_light == 1)
+            fn[no] = '1';
+    else
+            fn[no] = '0';
+    cvSaveImage ( /*"ChainsWithBoxes.png"*/fn, output);
     cvReleaseImage ( &gradientX );
     cvReleaseImage ( &gradientY );
     cvReleaseImage ( &SWTImage );
     cvReleaseImage ( &edgeImage );
+
+    printf("****************** End ******************\n");
+
     return output5;
 }
 
