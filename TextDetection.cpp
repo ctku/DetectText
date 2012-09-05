@@ -346,7 +346,7 @@ IplImage * textDetection (IplImage * input, bool dark_on_light, char * argv)
     ex = strrchr(fn, '.');
     strcpy(ex, ".N.png");
     int no = strlen(fn) - 5;
-    printf("***************** Start *****************\n");
+    printf("[1] ***************** Start *****************\n");
 
     // Save original image
     fn[no] = '_';
@@ -444,10 +444,11 @@ IplImage * textDetection (IplImage * input, bool dark_on_light, char * argv)
     std::vector<std::vector<Point2d> > components = findLegallyConnectedComponents(SWTImage, rays);
 
     /////////////////////////////////
+    printf("[2] After findLegallyConnectedComponents\n components are:\n");
     int i, j;
     for (i=0; i<components.size(); i++) {
         for (j=0; j<components[i].size(); j++) {
-            printf("(x,y,SWT)=(%d,%d,%f)\n", components[i][j].x, components[i][j].y, components[i][j].SWT);
+            printf("no.%d (x,y,SWT)=(%d,%d,%f)\n", i, components[i][j].x, components[i][j].y, components[i][j].SWT);
         }
     }
     /////////////////////////////////
@@ -462,10 +463,18 @@ IplImage * textDetection (IplImage * input, bool dark_on_light, char * argv)
     filterComponents(SWTImage, components, validComponents, compCenters, compMedians, compDimensions, compBB );
 
     /////////////////////////////////
+    printf("[3] After filterComponents\n validComponents are:\n");
     for (i=0; i<validComponents.size(); i++) {
         for (j=0; j<validComponents[i].size(); j++) {
-            printf("(x,y,SWT)=(%d,%d,%f)\n", validComponents[i][j].x, validComponents[i][j].y, validComponents[i][j].SWT);
+            ;//printf("(x,y,SWT)=(%d,%d,%f)\n", validComponents[i][j].x, validComponents[i][j].y, validComponents[i][j].SWT);
         }
+    }
+    printf("comBB are:\n");
+    for (i=0; i<compBB.size(); i++) {
+        printf("(x,y,SWT)=(%d,%d,%f)-(%d,%d,%f)\n", 
+        compBB[i].first.x, compBB[i].first.y, compBB[i].first.SWT,
+        compBB[i].second.x, compBB[i].second.y, compBB[i].second.SWT
+        );
     }
     /////////////////////////////////
 
