@@ -461,12 +461,23 @@ IplImage * textDetection (IplImage * input, bool dark_on_light, char * argv)
     std::vector<Point2d> compDimensions;
     filterComponents(SWTImage, components, validComponents, compCenters, compMedians, compDimensions, compBB );
 
+    /////////////////////////////////
+    for (i=0; i<validComponents.size(); i++) {
+        for (j=0; j<validComponents[i].size(); j++) {
+            printf("(x,y,SWT)=(%d,%d,%f)\n", validComponents[i][j].x, validComponents[i][j].y, validComponents[i][j].SWT);
+        }
+    }
+    /////////////////////////////////
+
     IplImage * output3 =
             cvCreateImage ( cvGetSize ( input ), 8U, 3 );
     renderComponentsWithBoxes (SWTImage, validComponents, compBB, output3);
-    fn[no] = '3';
-    //cvSaveImage ( /*"components.png"*/fn,output3);
-    //cvReleaseImage ( &output3 );
+
+    /////////////////////////////////
+    fn[no] = 'H';
+    cvSaveImage (fn, output3);
+    /////////////////////////////////
+    cvReleaseImage ( &output3 );
 
     // Make chains of components
     std::vector<Chain> chains;
