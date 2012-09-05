@@ -394,17 +394,47 @@ IplImage * textDetection (IplImage * input, bool dark_on_light, char * argv)
             *ptr++ = -1;
         }
     }
+
+    /////////////////////////////////
+    fn[no] = 'A';
+    cvSaveImage (fn, edgeImage);
+    fn[no] = 'B';
+    cvSaveImage (fn, gradientX);
+    fn[no] = 'C';
+    cvSaveImage (fn, gradientY);
+    /////////////////////////////////
+
     strokeWidthTransform ( edgeImage, gradientX, gradientY, dark_on_light, SWTImage, rays );
+
+    /////////////////////////////////
+    fn[no] = 'D';
+    cvSaveImage (fn, SWTImage);
+    /////////////////////////////////
+
     SWTMedianFilter ( SWTImage, rays );
+
+    /////////////////////////////////
+    fn[no] = 'E';
+    cvSaveImage (fn, SWTImage);
+    /////////////////////////////////
 
     IplImage * output2 =
             cvCreateImage ( cvGetSize ( input ), IPL_DEPTH_32F, 1 );
     normalizeImage (SWTImage, output2);
+    /////////////////////////////////
+    fn[no] = 'F';
+    cvSaveImage (fn, output2);
+    /////////////////////////////////
+
     IplImage * saveSWT =
             cvCreateImage ( cvGetSize ( input ), IPL_DEPTH_8U, 1 );
     cvConvertScale(output2, saveSWT, 255, 0);
-    fn[no] = '2';
-    //cvSaveImage ( /*"SWT.png"*/fn, saveSWT);
+
+    /////////////////////////////////
+    fn[no] = 'G';
+    cvSaveImage (fn, saveSWT);
+    /////////////////////////////////
+
     cvReleaseImage ( &output2 );
     cvReleaseImage( &saveSWT );
 
@@ -412,6 +442,16 @@ IplImage * textDetection (IplImage * input, bool dark_on_light, char * argv)
     // return type is a vector of vectors, where each outer vector is a component and
     // the inner vector contains the (y,x) of each pixel in that component.
     std::vector<std::vector<Point2d> > components = findLegallyConnectedComponents(SWTImage, rays);
+
+    /////////////////////////////////
+    int i, j;
+    for (i=0; i<components.size(); i++) {
+        for (j=0; j<components[i].size(); j++) {
+            printf("(x,y,SWT)=(%d,%d,%f)\n", components[i][j].x, components[i][j].y, components[i][j].SWT);
+        }
+    }
+    /////////////////////////////////
+
 
     // Filter the components
     std::vector<std::vector<Point2d> > validComponents;
